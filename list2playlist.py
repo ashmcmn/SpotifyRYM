@@ -1,3 +1,4 @@
+# this will be super buggy atm as there's a lot of freedom in formatting lists, will improve over time as i account for variations
 import time
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
