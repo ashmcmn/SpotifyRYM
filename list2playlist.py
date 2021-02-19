@@ -1,4 +1,3 @@
-# this will be super buggy atm as there's a lot of freedom in formatting lists, will improve over time as i account for variations
 import time
 from selenium.common.exceptions import NoSuchElementException
 from selenium import webdriver
@@ -63,7 +62,10 @@ driver.get(rym_url)
 
 releases = []
 
+list_name = driver.find_element(By.XPATH, '//*[@id="breadcrumb"]/ul/li[3]').get_attribute('textContent')
 table = driver.find_elements(By.CLASS_NAME, 'main_entry')
+
+list_type = 'ranked' if len(driver.find_elements(By.CLASS_NAME, 'number')) > 0 else 'normal'
 
 print('Scraping releases from page 1')
 
@@ -76,14 +78,20 @@ for release in table:
         print(release.get_attribute('textContent'))
 
 page = 2
-if '-' in driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent'):
-    lastpage = int(driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent').split('-')[1])
-else:
-    lastpage = int(driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent'))
+lastpage = 1
+if len(driver.find_elements(By.CLASS_NAME, 'navlinknum')) > 0:
+    if list_type == 'normal':
+        if '-' in driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent'):
+            lastpage = int(
+                driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent').split('-')[1])
+        else:
+            lastpage = int(driver.find_elements(By.CLASS_NAME, 'navlinknum')[-1].get_attribute('textContent'))
+    else:
+        lastpage = len(driver.find_elements(By.CLASS_NAME, 'navlinknum'))
 
 while page <= lastpage:
     print(f'Scraping releases from page {page}')
-    driver.get(rym_url+'/'+str(page))
+    driver.get(rym_url[:-1]+str(page))
 
     table = driver.find_elements(By.CLASS_NAME, 'main_entry')
 
@@ -100,14 +108,16 @@ while page <= lastpage:
 uris = []
 
 print('Searching spotify for releases')
-for r in releases:
+for i, r in enumerate(releases):
+    if i % (len(releases) // 10) == 0:
+        print(f'Searching for release {i+1}/{len(releases)}')
     results = spotify.search(r, type='album')['albums']['items']
     if len(results) > 0:
         tracks = spotify.album_tracks(results[0]['uri'])
         for track in tracks['items']:
             uris.append('spotify:track:'+str(unicodedata.normalize('NFKD', track['id']).encode('ascii', 'ignore'), 'utf-8'))
 
-playlist = spotify.user_playlist_create(spotify_username, 'rym list')
+playlist = spotify.user_playlist_create(spotify_username, list_name)
 
 print(f'Adding {len(uris)} tracks to playlist')
 for i in range(int(ceil(len(uris)/100.0))):
